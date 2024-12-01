@@ -6,17 +6,21 @@ import math
 
 
 def training(instances, labels):
-    # 클래스별 데이터 분리
+    # Separate data by class
     class_0_instances = []
     class_1_instances = []
 
     for i, label in enumerate(labels):
         if label == 0:
-            class_0_instances.append([float(x) for x in instances[i]])
+            class_0_instances.append(
+                [float(x) for x in instances[i][1:]]
+            )  # Skip the date column
         else:
-            class_1_instances.append([float(x) for x in instances[i]])
+            class_1_instances.append(
+                [float(x) for x in instances[i][1:]]
+            )  # Skip the date column
 
-    # 평균과 분산 계산
+    # Calculate mean and variance
     def calculate_mean_and_variance(instances):
         if not instances:
             return [], []
@@ -30,7 +34,7 @@ def training(instances, labels):
     mean_0, variance_0 = calculate_mean_and_variance(class_0_instances)
     mean_1, variance_1 = calculate_mean_and_variance(class_1_instances)
 
-    # 클래스 사전확률
+    # Prior probabilities
     prob_class_0 = len(class_0_instances) / len(instances)
     prob_class_1 = len(class_1_instances) / len(instances)
 
@@ -46,7 +50,6 @@ def training(instances, labels):
     return parameters
 
 
-# 나이브 베이즈 예측 함수
 def predict(instance, parameters):
     def gaussian_probability(x, mean, variance):
         if variance == 0:
@@ -138,7 +141,7 @@ def run(train_file, test_file):
     instances, labels = load_raw_data(test_file)
     predictions = []
     for instance in instances:
-        result = predict(instance, parameters)
+        result = predict(instance[1:], parameters)  # Skip the date column
 
         if result not in [0, 1]:
             logging.error("The result must be either 0 or 1")
