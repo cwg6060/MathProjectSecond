@@ -5,7 +5,6 @@ import logging
 import math
 import numpy as np
 import pandas as pd
-from itertools import combinations
 
 
 def calculate_precision_recall_f1(true_labels, predicted_labels):
@@ -45,10 +44,7 @@ def calculate_precision_recall_f1(true_labels, predicted_labels):
 def load_raw_data(fname):
     data = pd.read_csv(fname)
     data.columns = data.columns.str.strip()  # Strip whitespace from column names
-    # Parse month from date and add it as a feature
-    data["month"] = pd.to_datetime(data["date"]).dt.month
-    # Include all columns except 'date' and 'label' as features
-    features = data.drop(columns=["date", "label"])
+    features = data[["avg (temperature)", "power"]].to_numpy()
     labels = data["label"].to_numpy()
     return features, labels
 
@@ -102,37 +98,42 @@ def run(train_file, test_file):
     train_features, train_labels = load_raw_data(train_file)
     test_features, test_labels = load_raw_data(test_file)
 
-    # Iterate over all combinations of features
-    feature_names = train_features.columns
-    best_f1 = 0
-    best_features = None
-    results = []  # To store results for the table
+    # Feature Set 1: avg (temperature) only
+    train_features_1 = train_features[:, [0]]  # Only temperature
+    test_features_1 = test_features[:, [0]]
+    params_1 = train_naive_bayes(train_features_1, train_labels)
+    predictions_1 = predict_naive_bayes(test_features_1, params_1)
+    precision_1, recall_1, f1_1 = report_metrics(
+        test_labels, predictions_1, "Feature Set 1"
+    )
 
-    for r in range(1, len(feature_names) + 1):
-        for combo in combinations(feature_names, r):
-            selected_train_features = train_features[list(combo)].to_numpy()
-            selected_test_features = test_features[list(combo)].to_numpy()
+    # # Feature Set 2: avg (temperature) only
+    # train_features_2 = train_features[:, [0]]  # Only temperature
+    # test_features_2 = test_features[:, [0]]
+    # params_2 = train_naive_bayes(train_features_2, train_labels)
+    # predictions_2 = predict_naive_bayes(test_features_2, params_2)
+    # precision_2, recall_2, f1_2 = report_metrics(test_labels, predictions_2, "Feature Set 2")
 
-            # Train and predict
-            params = train_naive_bayes(selected_train_features, train_labels)
-            predictions = predict_naive_bayes(selected_test_features, params)
-            _, _, f1 = report_metrics(test_labels, predictions, f"Features: {combo}")
+    # Feature Set 2: max (temperature) + max (humidity)
+    train_features_2 = (
+        train_features[:, [1]] + train_features[:, [4]]
+    )  # Sum of max_temp and max_humidity
+    test_features_2 = test_features[:, [1]] + test_features[:, [4]]
+    params_2 = train_naive_bayes(train_features_2, train_labels)
+    predictions_2 = predict_naive_bayes(test_features_2, params_2)
+    precision_2, recall_2, f1_2 = report_metrics(
+        test_labels, predictions_2, "Feature Set 2"
+    )
 
-            # Append results for table
-            results.append({"Feature Combination": combo, "F1-Score": f1})
-
-            # Check if this is the best F1 score
-            if f1 > best_f1:
-                best_f1 = f1
-                best_features = combo
-
-    # Print the best feature combination and its F1 score
-    print(f"Best F1 Score: {best_f1:.2f} with features: {best_features}")
-
-    # Convert results to a DataFrame and print as a table
-    results_df = pd.DataFrame(results)
-    print("\nF1-Score Table:")
-    print(results_df.sort_values(by="F1-Score", ascending=False).to_string(index=False))
+    # Summarize results
+    results = pd.DataFrame(
+        {
+            "Metric": ["Precision", "Recall", "F1-Score"],
+            "Feature Set 1": [precision_1, recall_1, f1_1],
+            "Feature Set 2": [precision_2, recall_2, f1_2],
+        }
+    )
+    print(results)
 
 
 def command_line_args():
